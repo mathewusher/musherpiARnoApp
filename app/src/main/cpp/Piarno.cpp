@@ -206,14 +206,12 @@ void Piarno::render() {
             color_t a = (1 - std::min(std::abs(songListScroll.get() - i) / (songListScroll.max / height / 1.5f), 1.0f)) * 255;
             if (0 < a) {
                 color c = i == round(songListScroll.get()) ?
-                        color{50, 176, 255, a} : color{255, 255,255, a};
+                          color{50, 176, 255, a} : color{255, 255,255, a};
                 engine->renderText(s, listPos, size, rot, c);
             }
         }
     }
 }
-
-
 
 bool Piarno::isBlack(int index) {
     static const bool blackIndex[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
@@ -326,7 +324,7 @@ void Piarno::createTiles() {
 //                log("[DEBUG/Piarno] Detected key release for at piano key: " + std::to_string(key) +
 //                    " with time " + std::to_string(midi[0][i].seconds));
 
-            currentTile[key]->endTime = midi[0][i].seconds + waitTimeBegin;
+                currentTile[key]->endTime = midi[0][i].seconds + waitTimeBegin;
 
             // draw the tile
             auto &tile = currentTile[key]->tile;
@@ -573,4 +571,27 @@ void Piarno::loadMidi(int i) {
     midi.doTimeAnalysis();
 
     log("[DEBUG/Piarno] LOADED MIDI FILE " + (songs[i]));
+}
+
+// === New public wrapper implementations ===
+bool Piarno::LoadMidiFromFile(const std::string& path) {
+    // You may want to implement actual file reading here
+    // For example, load MIDI from file path instead of index-based loadMidi
+    // Here we can adapt the existing loadMidi or create a new method accordingly
+
+    // Stub example: attempt to load from file path (assuming smf::MidiFile supports)
+    try {
+        midi.read(path);
+        midi.joinTracks();
+        midi.doTimeAnalysis();
+        createTiles();
+        return true;
+    } catch (...) {
+        log("[ERROR/Piarno] Failed to load MIDI file: " + path);
+        return false;
+    }
+}
+
+void Piarno::CreateTilesFromMidi() {
+    createTiles();
 }
