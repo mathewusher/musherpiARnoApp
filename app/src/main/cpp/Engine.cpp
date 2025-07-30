@@ -156,6 +156,17 @@ void Engine::update() {
         }
     }
 
+    // Handle looping logic if enabled
+    if (isLooping) {
+        if (currentPlaybackTime >= loopEnd) {
+            currentPlaybackTime = loopStart;
+        } else {
+            currentPlaybackTime += 1.0 / 72.0 * playbackSpeed;
+        }
+    } else {
+        currentPlaybackTime += 1.0 / 72.0 * playbackSpeed;
+    }
+
     piarno.update();
 }
 
@@ -373,12 +384,12 @@ void Engine::ParseAndLoadSong(const std::string& data) {
         outFile.write(data.data(), data.size());
         outFile.close();
 
-        if (!piarno.loadMidi(tempMidiPath)) {
+        if (!piarno.LoadMidiFromFile(tempMidiPath)) {
             std::cerr << "[ERROR] Piarno failed to load MIDI file.\n";
             return;
         }
 
-        piarno.createTiles();
+        piarno.CreateTilesFromMidi();
 
     } else if (isJsonFormat(data)) {
         std::cout << "[INFO] Detected JSON format.\n";
