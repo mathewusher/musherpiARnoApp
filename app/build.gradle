@@ -1,0 +1,74 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace 'com.oculus.xrpassthrough'
+    compileSdkVersion 34
+    buildToolsVersion '34.0.0'
+
+    defaultConfig {
+        applicationId "com.oculus.xrpassthrough"
+        minSdkVersion 26
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0"
+
+        externalNativeBuild {
+            cmake {
+                cppFlags ""
+                arguments "-DCMAKE_INSTALL_PREFIX=${buildDir}/native-install", "-DENABLE_GLES3_DEBUG=ON"
+            }
+        }
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    ndkVersion '26.2.11394342'
+
+    externalNativeBuild {
+        cmake {
+            path "jni/CMakeLists.txt"
+            // version "3.22.1" // optional, if needed for compatibility
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java']
+            jniLibs.srcDirs = ['libs']
+        }
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+tasks.register("installNativeLibs", Exec) {
+    group = "build"
+    dependsOn "externalNativeBuildDebug"
+    commandLine "cmake", "--install", "$buildDir/intermediates/cmake/debug/obj/arm64-v8a"
+}
+
+// Optional: Uncomment if you want installNativeLibs to run automatically after build
+// tasks.named("assembleDebug") {
+//     finalizedBy("installNativeLibs")
+// }
+
