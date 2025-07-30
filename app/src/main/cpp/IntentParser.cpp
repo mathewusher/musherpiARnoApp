@@ -3,26 +3,25 @@
 #include <cctype>
 #include <sstream>
 
-std::string toLower(const std::string& str) {
+static std::string toLower(const std::string& str) {
     std::string result = str;
     std::transform(result.begin(), result.end(), result.begin(),
                    [](unsigned char c) { return std::tolower(c); });
     return result;
 }
 
-float extractNumber(const std::string& input) {
+static float extractNumber(const std::string& input) {
     std::istringstream iss(input);
     float num;
     while (iss >> num) return num;
-    return 10.0f; // default if not found
+    return 10.0f; // default if no number found
 }
 
-std::string extractSongName(const std::string& input) {
+static std::string extractSongName(const std::string& input) {
     size_t pos = input.find("play ");
     if (pos == std::string::npos) pos = input.find("learn ");
     if (pos != std::string::npos) {
-        std::string name = input.substr(pos + 5);
-        return name;
+        return input.substr(pos + 5);
     }
     return "";
 }

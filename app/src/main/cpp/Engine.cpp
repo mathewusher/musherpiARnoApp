@@ -8,6 +8,18 @@
 #include <string>
 #include "GLES3Loader.h"
 
+// Added for AI and JSON parsing
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+
+#include <iostream>
+#include <cstring> // for memcmp
+#include <filesystem>
+#include <fstream>
+#include <algorithm>
+#include <iterator>
+
+// Global static pointers
 Scene* global::scene = nullptr;
 Engine* global::engine = nullptr;
 Piarno* global::piarno = nullptr;
@@ -16,6 +28,29 @@ void log(std::string s) {
     LOGE("%s", s.c_str());
 }
 
+// Minimal MIDI event struct for parsing
+struct MidiEvent {
+    uint32_t startTick;
+    uint8_t note;
+    uint32_t durationTicks;
+};
+
+static bool isMidiFormat(const std::string& data) {
+    return data.size() > 4 && memcmp(data.data(), "MThd", 4) == 0;
+}
+
+static bool isJsonFormat(const std::string& data) {
+    if (data.empty()) return false;
+    char first = data.front();
+    return first == '{' || first == '[';
+}
+
+// Placeholder MIDI parser stub
+static std::vector<MidiEvent> parseMidi(const std::string& data) {
+    std::vector<MidiEvent> events;
+    std::cout << "[WARN] MIDI parsing not implemented yet.\n";
+    return events;
+}
 
 Engine::Engine(Scene *scene) : scene(scene) {
     global::scene = scene;
@@ -46,8 +81,17 @@ Engine::Engine(Scene *scene) : scene(scene) {
     piarno.init();
     if (!LoadGLES3Extensions()) {
         LOGE("Failed to load GLES3 symbols!");
-        // Optional: handle fallback or abort
     }
+
+    voiceInput.SetInputCallback([this](const std::string& input) {
+        this->HandleUserInput(input);
+    });
+
+    // Simulated voice commands for testing
+    voiceInput.SimulateInput("play Fur Elise");
+    voiceInput.SimulateInput("rewind 10");
+    voiceInput.SimulateInput("loop last part");
+    voiceInput.SimulateInput("speed up");
 }
 
 uint64_t Engine::getFrame() {
@@ -66,7 +110,7 @@ float Engine::getRightTriggerHoldLevel() {
     return scene->rightTriggerHoldLevel;
 }
 
-Geometry *Engine::getGeometry(Mesh mesh) {
+Geometry* Engine::getGeometry(Mesh mesh) {
     return &scene->geometries[(size_t) mesh];
 }
 
@@ -138,9 +182,9 @@ void Engine::render() {
     for(auto &c : controllers)
         c.render();
 
-
     //DEBUG render all loaded meshes
-    /*float x = -1, y = 0, z = -1;
+    /*
+    float x = -1, y = 0, z = -1;
     getGeometry(Mesh::axes)->render(mat4::Translation(x, y, z));
     int i = 0;
     for (auto &g: scene->geometries) {
@@ -149,14 +193,14 @@ void Engine::render() {
             x += i > 25 ? 1 : fontWidth[i] + 0.01;
         }
         i++;
-    }*/
+    }
+    */
 }
 
 std::array<float, 38> Engine::fontWidth;
 
-
-std::vector <Geometry> Engine::loadGeometries() {
-    std::vector <Geometry> g((size_t) Mesh::NUM);
+std::vector<Geometry> Engine::loadGeometries() {
+    std::vector<Geometry> g((size_t) Mesh::NUM);
 
     {
 #include "models/alphanum.h"
@@ -175,7 +219,7 @@ std::vector <Geometry> Engine::loadGeometries() {
         const size_t numChars = 38;
         double charHeight = (yMax - yMin);
         std::array<std::vector<vertex_t>, numChars> allVertices;
-        std::vector <uint8_t> vertexCharLookup(vertices.size() / 3);
+        std::vector<uint8_t> vertexCharLookup(vertices.size() / 3);
         std::array<std::vector<index_t>, numChars> allIndices;
         std::array<int, numChars> firstVertexIndexPerChar;
         firstVertexIndexPerChar.fill(-1);
@@ -272,4 +316,89 @@ std::vector <Geometry> Engine::loadGeometries() {
     return g;
 }
 
+// AI voice/text command handler
+void Engine::HandleUserInput(const std::string& input) {
+    Intent intent = parseIntent(input);
 
+    if (intent.id == "speed_up") {
+        playbackSpeed *= 1.25f;
+        std::cout << "[INFO] Playback speed increased to " << playbackSpeed << std::endl;
+    } else if (intent.id == "slow_down") {
+        playbackSpeed *= 0.8f;
+        std::cout << "[INFO] Playback speed decreased to " << playbackSpeed << std::endl;
+    } else if (intent.id == "rewind") {
+        currentPlaybackTime = std::max(0.0f, currentPlaybackTime - intent.seconds);
+        std::cout << "[INFO] Rewound " << intent.seconds << " seconds, new time: " << currentPlaybackTime << std::endl;
+    } else if (intent.id == "fast_forward") {
+        currentPlaybackTime += intent.seconds;
+        std::cout << "[INFO] Fast forwarded " << intent.seconds << " seconds, new time: " << currentPlaybackTime << std::endl;
+    } else if (intent.id == "loop") {
+        loopStart = currentPlaybackTime - 20.0f;
+        if (loopStart < 0) loopStart = 0;
+        loopEnd = currentPlaybackTime;
+        isLooping = true;
+        std::cout << "[INFO] Looping last 20 seconds from " << loopStart << " to " << loopEnd << std::endl;
+    } else if (intent.id == "load_song") {
+        std::cout << "[INFO] Loading song: " << intent.songName << std::endl;
+        LoadSongByName(intent.songName);
+    } else {
+        std::cout << "[WARN] Unknown intent: " << intent.id << std::endl;
+    }
+}
+
+void Engine::LoadSongByName(const std::string& name) {
+    std::string basePath = "/sdcard/Android/data/com.oculus.xrpassthrough/files/songs/";
+    std::string matchedFile;
+
+    for (const auto& entry : std::filesystem::directory_iterator(basePath)) {
+        std::string fname = entry.path().filename().string();
+        std::string lowerName = name;
+        std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+        std::string lowerFname = fname;
+        std::transform(lowerFname.begin(), lowerFname.end(), lowerFname.begin(), ::tolower);
+
+        if (lowerFname.find(lowerName) != std::string::npos) {
+            matchedFile = entry.path().string();
+            break;
+        }
+    }
+
+    if (!matchedFile.empty()) {
+        std::ifstream file(matchedFile);
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        ParseAndLoadSong(content);
+    } else {
+        std::cerr << "[WARN] Song not found: " << name << std::endl;
+    }
+}
+
+void Engine::ParseAndLoadSong(const std::string& data) {
+    if (isMidiFormat(data)) {
+        std::cout << "[INFO] Detected MIDI format.\n";
+        auto midiEvents = parseMidi(data);
+
+        for (const auto& ev : midiEvents) {
+            // TODO: add tile spawning using your existing tile system, e.g.:
+            // piarno.AddTile(ev.note, ev.startTick, ev.durationTicks);
+        }
+    }
+    else if (isJsonFormat(data)) {
+        std::cout << "[INFO] Detected JSON format.\n";
+        try {
+            auto j = json::parse(data);
+
+            for (auto& tile : j) {
+                int pitch = tile["pitch"];
+                float start = tile["start"];
+                float duration = tile["duration"];
+                // TODO: add tile spawning using your existing tile system, e.g.:
+                // piarno.AddTile(pitch, start, duration);
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "[ERROR] JSON parsing failed: " << e.what() << std::endl;
+        }
+    }
+    else {
+        std::cerr << "[ERROR] Unknown song format.\n";
+    }
+}
