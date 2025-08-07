@@ -39,6 +39,7 @@ include_directories(
     ../../OpenXR/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/External/curl/include
     ../../3rdParty/ktx/include
+    ../../3rdParty/nlohmann
 )
 
 # Add midifile static library

@@ -3,13 +3,15 @@
 //
 
 #include "Engine.h"
+#include "IntentParser.h"
+
+#include <json.hpp>
+using json = nlohmann::json;
+
 #include <vector>
 #include <openxr/openxr.h>
 #include <string>
 #include "GLES3Loader.h"
-
-#include <nlohmann/json.hpp>
-using json = nlohmann::json;
 
 #include <iostream>
 #include <cstring> // for memcmp
@@ -369,10 +371,6 @@ void Engine::LoadSongByName(const std::string& name) {
 void Engine::ParseAndLoadSong(const std::string& data) {
     if (isMidiFormat(data)) {
         std::cout << "[INFO] Detected MIDI format.\n";
-
-        // Instead of parsing here, delegate to Piarno which handles MIDI parsing fully
-        // Save data to temporary file or provide via memory stream if Piarno supports it
-        // For simplicity, we save to a temp file in the app's directory:
 
         std::string tempMidiPath = "/sdcard/Android/data/com.oculus.xrpassthrough/files/temp_midi.mid";
 
