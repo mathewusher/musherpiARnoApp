@@ -303,7 +303,6 @@ std::string AISongGenerator::CreateSimpleMIDI(const std::string& songName,
     
     // Set tempo (120 BPM)
     uint32_t tempo = 500000; // microseconds per quarter note
-    uint32_t deltaTime = 0;
     
     // Write tempo meta event
     midi.put(0x00); // Delta time (variable length encoded, 0 = 0x00)
