@@ -53,7 +53,7 @@ public:
     /**
      * Set API key for OpenAI (optional, can use environment variable)
      */
-    void SetApiKey(const std::string& apiKey) { this->apiKey = apiKey; }
+    void SetApiKey(const std::string& key) { this->apiKey = key; }
 
     /**
      * Set custom API endpoint (for custom music generation services)
