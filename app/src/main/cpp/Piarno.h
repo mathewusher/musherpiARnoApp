@@ -64,6 +64,9 @@ public:
     // === Added public wrappers for MIDI loading and tile creation ===
     bool LoadMidiFromFile(const std::string& path);
     void CreateTilesFromMidi();
+    
+    // AI generation
+    void SetAIStatus(const std::string& status) { aiStatusText = status; }
 
 private:
     //internal helpers
@@ -113,4 +116,8 @@ private:
 
     Object pianoOutline; //to help aligning
     Button toggleOutline;
+    
+    // AI generation UI
+    Button aiGenerateButton;
+    std::string aiStatusText;
 };

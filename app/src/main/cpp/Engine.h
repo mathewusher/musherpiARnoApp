@@ -13,6 +13,7 @@
 #include "XrPassthroughGl.h"
 #include "Piarno.h"
 #include "VoiceInputManager.h"
+#include "AISongGenerator.h"
 
 //DEBUG LOGGING
 #include "android/log.h"
@@ -91,4 +92,6 @@ protected:
     static std::array<float, 38> fontWidth;
 
     VoiceInputManager voiceInput;
+    AISongGenerator aiSongGenerator;
+    std::string aiGenerationStatus; // Status message for AI generation
 };

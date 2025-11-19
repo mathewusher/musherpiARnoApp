@@ -337,6 +337,36 @@ void Engine::HandleUserInput(const std::string& input) {
     } else if (intent.id == "load_song") {
         std::cout << "[INFO] Loading song: " << intent.songName << std::endl;
         LoadSongByName(intent.songName);
+    } else if (intent.id == "generate_song") {
+        std::cout << "[INFO] Generating AI song: " << intent.songName << std::endl;
+        aiGenerationStatus = "Generating song...";
+        piarno.SetAIStatus(aiGenerationStatus);
+        
+        aiSongGenerator.GenerateSong(intent.songName, [this](bool success, const std::string& filePath, const std::string& errorMsg) {
+            if (success) {
+                std::cout << "[INFO] AI song generated successfully: " << filePath << std::endl;
+                aiGenerationStatus = "Song generated! Loading...";
+                piarno.SetAIStatus(aiGenerationStatus);
+                
+                // Load the generated song
+                std::ifstream file(filePath, std::ios::binary);
+                if (file.is_open()) {
+                    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                    file.close();
+                    ParseAndLoadSong(content);
+                    aiGenerationStatus = "Song loaded!";
+                    piarno.SetAIStatus(aiGenerationStatus);
+                } else {
+                    aiGenerationStatus = "Error: Could not open generated file";
+                    piarno.SetAIStatus(aiGenerationStatus);
+                    std::cerr << "[ERROR] Failed to open generated MIDI file: " << filePath << std::endl;
+                }
+            } else {
+                std::cerr << "[ERROR] AI song generation failed: " << errorMsg << std::endl;
+                aiGenerationStatus = "Error: " + errorMsg;
+                piarno.SetAIStatus(aiGenerationStatus);
+            }
+        });
     } else {
         std::cout << "[WARN] Unknown intent: " << intent.id << std::endl;
     }

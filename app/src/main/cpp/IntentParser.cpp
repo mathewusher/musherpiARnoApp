@@ -30,6 +30,30 @@ Intent parseIntent(const std::string& input) {
     std::string lower = toLower(input);
     Intent result;
 
+    // Check for AI generation commands first
+    if (lower.find("create") != std::string::npos || 
+        lower.find("generate") != std::string::npos || 
+        lower.find("make") != std::string::npos ||
+        lower.find("ai") != std::string::npos) {
+        // Check if it's specifically about creating/generating music
+        if (lower.find("song") != std::string::npos || 
+            lower.find("music") != std::string::npos ||
+            lower.find("piece") != std::string::npos ||
+            lower.find("melody") != std::string::npos) {
+            result.id = "generate_song";
+            // Extract the song description
+            size_t pos = lower.find("create");
+            if (pos == std::string::npos) pos = lower.find("generate");
+            if (pos == std::string::npos) pos = lower.find("make");
+            if (pos != std::string::npos) {
+                result.songName = input.substr(pos);
+            } else {
+                result.songName = input;
+            }
+            return result;
+        }
+    }
+
     if (lower.find("faster") != std::string::npos || lower.find("speed up") != std::string::npos) {
         result.id = "speed_up";
     } else if (lower.find("slower") != std::string::npos || lower.find("slow down") != std::string::npos) {

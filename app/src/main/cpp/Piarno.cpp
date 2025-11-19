@@ -99,6 +99,20 @@ void Piarno::init() {
     toggleOutline.label = "ALIGN";
     toggleOutline.labelRot = -M_PI/2;
     pianoScene.attach(toggleOutline);
+    
+    // AI generation button (left side, below song list)
+    origin = vec3{-0.34, 0, 0};
+    off = vec3{-0.4, 0, 0.15};
+    aiGenerateButton.geometry = engine->getGeometry(Mesh::cube);
+    aiGenerateButton.pos = origin + off;
+    aiGenerateButton.scl = vec3{0.03, 0.02, 0.03};
+    aiGenerateButton.col = color{150, 0, 150, 255};
+    aiGenerateButton.pressCol = color{100, 0, 100, 255};
+    aiGenerateButton.label = "AI";
+    aiGenerateButton.labelRot = M_PI/2;
+    pianoScene.attach(aiGenerateButton);
+    
+    aiStatusText = "";
 }
 
 
@@ -111,6 +125,7 @@ void Piarno::update() {
     playbackSpeed.update(controllers);
     toggleOutline.update(controllers);
     songListScroll.update(controllers);
+    aiGenerateButton.update(controllers);
 
     if (pauseButton.isPressed())
         isPaused = !isPaused;
@@ -148,6 +163,12 @@ void Piarno::update() {
 
     if(toggleOutline.isPressed())
         pianoOutline.show = !pianoOutline.show;
+    
+    if(aiGenerateButton.isPressed()) {
+        // Trigger AI generation via voice input simulation
+        // User can say "create a happy song" or similar
+        engine->HandleUserInput("create song");
+    }
 
     if(songListScroll.isReleased()) {
         songListScroll.set(round(songListScroll.get()));
@@ -210,6 +231,16 @@ void Piarno::render() {
                 engine->renderText(s, listPos, size, rot, c);
             }
         }
+    }
+    
+    // Render AI generation status
+    if (!aiStatusText.empty()) {
+        vec3 statusPos = aiGenerateButton.globalPos(aiGenerateButton.pos + vec3{0, -0.1, 0.2});
+        vec3 statusSize{0.02, 0.02, 0.03};
+        vec3 statusRot = aiGenerateButton.globalRot(aiGenerateButton.rot + vec3{-M_PI/2, M_PI/2, 0});
+        color statusColor = (aiStatusText.find("Error") != std::string::npos) ? 
+                           color{255, 0, 0, 200} : color{0, 255, 0, 200};
+        engine->renderText(aiStatusText, statusPos, statusSize, statusRot, statusColor);
     }
 }
 

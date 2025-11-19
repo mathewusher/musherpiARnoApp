@@ -21,10 +21,11 @@ file(GLOB_RECURSE XR_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/*.cpp
 )
 
-# Explicitly add IntentParser and VoiceInputManager source files if glob misses them
+# Explicitly add IntentParser, VoiceInputManager, and AISongGenerator source files if glob misses them
 list(APPEND XR_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/IntentParser.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/VoiceInputManager.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/AISongGenerator.cpp
 )
 
 # Include paths
