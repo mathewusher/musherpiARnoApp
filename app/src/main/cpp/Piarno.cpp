@@ -301,7 +301,8 @@ void Piarno::buildPiano() {
 void Piarno::createTiles() {
     // count the total number of key presses events (=notes being played)
     int keyPressNum = 0;
-    for (int i = 0; i < midi.getNumEvents(0); i++) {
+    int numEvents = midi.getNumEvents(0);
+    for (int i = 0; i < numEvents; i++) {
         int command = midi[0][i][0];
         int velocity = midi[0][i][2];
         if (command == 0x90 && velocity > 0) {
@@ -315,8 +316,11 @@ void Piarno::createTiles() {
     for(auto &t : allTiles)
         pianoScene.detach(&t.tile);
 
-    allTiles = std::vector<Tile>(keyPressNum);
-    trackToIndex = std::unordered_map<int, size_t>();
+    // Pre-allocate with exact size to avoid reallocations
+    allTiles.clear();
+    allTiles.reserve(keyPressNum);
+    allTiles.resize(keyPressNum);
+    trackToIndex.clear();
 
     std::vector<Tile *> currentTile(numKeys,nullptr); //"currently" (within the below loop) active tile
 

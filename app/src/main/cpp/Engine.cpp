@@ -19,6 +19,7 @@ using json = nlohmann::json;
 #include <fstream>
 #include <algorithm>
 #include <iterator>
+#include <mutex>
 
 Scene* global::scene = nullptr;
 Engine* global::engine = nullptr;
@@ -38,7 +39,7 @@ static bool isJsonFormat(const std::string& data) {
     return first == '{' || first == '[';
 }
 
-Engine::Engine(Scene *scene) : scene(scene) {
+Engine::Engine(Scene *scene) : scene(scene), cacheTime(std::chrono::steady_clock::now()) {
     global::scene = scene;
     global::engine = this;
     global::piarno = &piarno;
@@ -342,20 +343,35 @@ void Engine::HandleUserInput(const std::string& input) {
         aiGenerationStatus = "Generating song...";
         piarno.SetAIStatus(aiGenerationStatus);
         
+        // Invalidate cache when new song is generated
+        cachedSongFiles.clear();
+        
         aiSongGenerator.GenerateSong(intent.songName, [this](bool success, const std::string& filePath, const std::string& errorMsg) {
             if (success) {
                 std::cout << "[INFO] AI song generated successfully: " << filePath << std::endl;
                 aiGenerationStatus = "Song generated! Loading...";
                 piarno.SetAIStatus(aiGenerationStatus);
                 
-                // Load the generated song
-                std::ifstream file(filePath, std::ios::binary);
+                // Load the generated song efficiently
+                std::ifstream file(filePath, std::ios::binary | std::ios::ate);
                 if (file.is_open()) {
-                    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                    std::streamsize size = file.tellg();
+                    file.seekg(0, std::ios::beg);
+                    
+                    std::string content;
+                    content.resize(size);
+                    if (file.read(content.data(), size)) {
+                        ParseAndLoadSong(content);
+                        aiGenerationStatus = "Song loaded!";
+                        piarno.SetAIStatus(aiGenerationStatus);
+                        // Add to cache
+                        cachedSongFiles.push_back(filePath);
+                    } else {
+                        aiGenerationStatus = "Error: Failed to read file";
+                        piarno.SetAIStatus(aiGenerationStatus);
+                        std::cerr << "[ERROR] Failed to read generated MIDI file: " << filePath << std::endl;
+                    }
                     file.close();
-                    ParseAndLoadSong(content);
-                    aiGenerationStatus = "Song loaded!";
-                    piarno.SetAIStatus(aiGenerationStatus);
                 } else {
                     aiGenerationStatus = "Error: Could not open generated file";
                     piarno.SetAIStatus(aiGenerationStatus);
@@ -374,35 +390,88 @@ void Engine::HandleUserInput(const std::string& input) {
 
 void Engine::LoadSongByName(const std::string& name) {
     std::string basePath = "/sdcard/Android/data/com.oculus.xrpassthrough/files/songs/";
+    
+    // Check if directory exists
+    if (!std::filesystem::exists(basePath)) {
+        std::cerr << "[WARN] Songs directory does not exist: " << basePath << std::endl;
+        return;
+    }
+    
+    // Use cached file list if available and recent
+    auto now = std::chrono::steady_clock::now();
+    bool useCache = !cachedSongFiles.empty() && 
+                    (now - cacheTime) < CACHE_DURATION;
+    
+    if (!useCache) {
+        // Refresh cache
+        cachedSongFiles.clear();
+        try {
+            for (const auto& entry : std::filesystem::directory_iterator(basePath)) {
+                if (entry.is_regular_file()) {
+                    cachedSongFiles.push_back(entry.path().string());
+                }
+            }
+            cacheTime = now;
+        } catch (const std::filesystem::filesystem_error& e) {
+            std::cerr << "[ERROR] Failed to read songs directory: " << e.what() << std::endl;
+            return;
+        }
+    }
+    
+    // Pre-compute lowercase name once
+    std::string lowerName = name;
+    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+    
+    // Find matching file
     std::string matchedFile;
-
-    for (const auto& entry : std::filesystem::directory_iterator(basePath)) {
-        std::string fname = entry.path().filename().string();
-        std::string lowerName = name;
-        std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+    for (const auto& filePath : cachedSongFiles) {
+        std::string fname = std::filesystem::path(filePath).filename().string();
         std::string lowerFname = fname;
         std::transform(lowerFname.begin(), lowerFname.end(), lowerFname.begin(), ::tolower);
 
         if (lowerFname.find(lowerName) != std::string::npos) {
-            matchedFile = entry.path().string();
+            matchedFile = filePath;
             break;
         }
     }
 
     if (!matchedFile.empty()) {
-        std::ifstream file(matchedFile);
-        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        ParseAndLoadSong(content);
+        // Read file more efficiently
+        std::ifstream file(matchedFile, std::ios::binary | std::ios::ate);
+        if (!file.is_open()) {
+            std::cerr << "[ERROR] Failed to open file: " << matchedFile << std::endl;
+            return;
+        }
+        
+        std::streamsize size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        
+        std::string content;
+        content.resize(size);
+        if (file.read(content.data(), size)) {
+            ParseAndLoadSong(content);
+        } else {
+            std::cerr << "[ERROR] Failed to read file: " << matchedFile << std::endl;
+        }
     } else {
         std::cerr << "[WARN] Song not found: " << name << std::endl;
     }
 }
 
 void Engine::ParseAndLoadSong(const std::string& data) {
+    if (data.empty()) {
+        std::cerr << "[ERROR] Empty song data provided.\n";
+        return;
+    }
+    
     if (isMidiFormat(data)) {
         std::cout << "[INFO] Detected MIDI format.\n";
 
         std::string tempMidiPath = "/sdcard/Android/data/com.oculus.xrpassthrough/files/temp_midi.mid";
+
+        // Ensure directory exists
+        std::filesystem::path tempPath(tempMidiPath);
+        std::filesystem::create_directories(tempPath.parent_path());
 
         std::ofstream outFile(tempMidiPath, std::ios::binary);
         if (!outFile) {

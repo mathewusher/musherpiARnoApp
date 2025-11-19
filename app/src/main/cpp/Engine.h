@@ -8,6 +8,8 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <chrono>
+#include <mutex>
 
 #include "Global.h"
 #include "XrPassthroughGl.h"
@@ -94,4 +96,9 @@ protected:
     VoiceInputManager voiceInput;
     AISongGenerator aiSongGenerator;
     std::string aiGenerationStatus; // Status message for AI generation
+    
+    // Cached directory listing to avoid repeated filesystem scans
+    mutable std::vector<std::string> cachedSongFiles;
+    mutable std::chrono::steady_clock::time_point cacheTime;
+    static constexpr std::chrono::seconds CACHE_DURATION{5}; // Cache for 5 seconds
 };

@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <tuple>
 #include <cstdlib>
+#include <iterator>
 
 using json = nlohmann::json;
 
@@ -29,6 +30,13 @@ AISongGenerator::AISongGenerator()
     : status(Status::Idle), shouldCancel(false) {
     // Default to OpenAI API
     apiEndpoint = "https://api.openai.com/v1/chat/completions";
+    
+    // Ensure songs directory exists
+    try {
+        std::filesystem::create_directories(SONGS_BASE_PATH);
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "[AISongGenerator] Warning: Could not create songs directory: " << e.what() << std::endl;
+    }
 }
 
 AISongGenerator::~AISongGenerator() {
@@ -72,24 +80,31 @@ void AISongGenerator::GenerationThread(const std::string& prompt,
         std::string midiData;
         std::string songName = prompt;
         
-        // Extract song name from prompt (remove "create", "generate", etc.)
-        std::string lowerPrompt = prompt;
-        std::transform(lowerPrompt.begin(), lowerPrompt.end(), lowerPrompt.begin(), ::tolower);
+        // Extract song name from prompt (remove "create", "generate", etc.) - optimized
+        std::string lowerPrompt;
+        lowerPrompt.reserve(prompt.size());
+        std::transform(prompt.begin(), prompt.end(), std::back_inserter(lowerPrompt), ::tolower);
         
+        size_t pos = std::string::npos;
         if (lowerPrompt.find("create") != std::string::npos) {
-            size_t pos = lowerPrompt.find("create");
-            songName = prompt.substr(pos + 7);
+            pos = lowerPrompt.find("create") + 7;
         } else if (lowerPrompt.find("generate") != std::string::npos) {
-            size_t pos = lowerPrompt.find("generate");
-            songName = prompt.substr(pos + 9);
+            pos = lowerPrompt.find("generate") + 9;
         } else if (lowerPrompt.find("make") != std::string::npos) {
-            size_t pos = lowerPrompt.find("make");
-            songName = prompt.substr(pos + 5);
+            pos = lowerPrompt.find("make") + 5;
         }
         
-        // Trim whitespace
-        songName.erase(0, songName.find_first_not_of(" \t\n\r"));
-        songName.erase(songName.find_last_not_of(" \t\n\r") + 1);
+        if (pos != std::string::npos && pos < prompt.size()) {
+            songName = prompt.substr(pos);
+            // Trim whitespace efficiently
+            size_t start = songName.find_first_not_of(" \t\n\r");
+            if (start != std::string::npos) {
+                size_t end = songName.find_last_not_of(" \t\n\r");
+                songName = songName.substr(start, end - start + 1);
+            } else {
+                songName.clear();
+            }
+        }
         
         if (songName.empty()) {
             songName = "AI Generated Song";
