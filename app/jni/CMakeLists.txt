@@ -21,9 +21,17 @@ file(GLOB_RECURSE XR_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/*.cpp
 )
 
+# Explicitly add IntentParser, VoiceInputManager, and AISongGenerator source files if glob misses them
+list(APPEND XR_SRC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/IntentParser.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/VoiceInputManager.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/AISongGenerator.cpp
+)
+
 # Include paths
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/midi
     ../../1stParty/OVR/Include
     ../../1stParty/utilities/include
     ../../3rdParty/stb/src
@@ -32,6 +40,18 @@ include_directories(
     ../../OpenXR/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/External/curl/include
     ../../3rdParty/ktx/include
+    ../../3rdParty/nlohmann
+)
+
+# Add midifile static library
+add_library(midifile STATIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/midi/MidiFile.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/midi/MidiEvent.cpp
+        # add other midifile source files if any
+)
+
+target_include_directories(midifile PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/main/cpp/midi
 )
 
 # External native modules with explicit binary dirs
@@ -52,6 +72,7 @@ target_include_directories(android_native_app_glue INTERFACE
 add_library(curl STATIC IMPORTED)
 set_target_properties(curl PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/External/curl/libcurl.a)
 target_include_directories(curl INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/External/curl/include)
+
 # Prebuilt ktx
 add_library(ktx STATIC IMPORTED)
 set_target_properties(ktx PROPERTIES IMPORTED_LOCATION
@@ -69,8 +90,7 @@ set_target_properties(openxr_loader PROPERTIES
 target_include_directories(openxr_loader INTERFACE
     ${CMAKE_SOURCE_DIR}/../../OpenXR/Include)
 
-
-# Link dependencies
+# Link dependencies, add midifile here
 target_link_libraries(xrpassthrough
     log
     android
@@ -86,6 +106,7 @@ target_link_libraries(xrpassthrough
     curl
     ktx
     android_native_app_glue
+    midifile
 )
 
 # OpenGL ES 3 Debug toggle
@@ -96,4 +117,3 @@ if(ENABLE_GLES3_DEBUG)
 else()
     add_definitions(-DENABLE_GLES3_DEBUG=0)
 endif()
-

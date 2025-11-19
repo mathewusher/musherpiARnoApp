@@ -10,37 +10,37 @@
 #include <unordered_map>
 
 const std::vector<std::string> songs = {
-    "Canon",
-    "2AM",
-    "Sweden",
-    "Twinkle",
-    "Supermario",
-    "Hit the Road Jack",
-    "Gymnopedie No.2",
-    "Fuer Elise",
-    "Jacque",
-    "Ode to Joy",
-    "Heart n Soul 1",
-    "Heart n Soul 2",
-    "Coffin Dance",
-    "Wet Hands",
-    "Sweden  I Easy I",
-    "Four Seasons Spring",
-    "Four Seasons Winter",
-    "Game of Thrones",
-    "Minuet in F Major",
-    "Beethoven 7th Symphony",
-    "Fairy Tail",
-    "River Flows in You",
-    "Amelie Theme",
-    "In the Name of Love",
-    "Imagine",
-    "The Winner Takes It All",
-    "Somewhere over the Rainbow",
-    "Paradise",
-    "Let Her Go",
-    "Take On Me",
-    "Harry Potter"
+        "Canon",
+        "2AM",
+        "Sweden",
+        "Twinkle",
+        "Supermario",
+        "Hit the Road Jack",
+        "Gymnopedie No.2",
+        "Fuer Elise",
+        "Jacque",
+        "Ode to Joy",
+        "Heart n Soul 1",
+        "Heart n Soul 2",
+        "Coffin Dance",
+        "Wet Hands",
+        "Sweden  I Easy I",
+        "Four Seasons Spring",
+        "Four Seasons Winter",
+        "Game of Thrones",
+        "Minuet in F Major",
+        "Beethoven 7th Symphony",
+        "Fairy Tail",
+        "River Flows in You",
+        "Amelie Theme",
+        "In the Name of Love",
+        "Imagine",
+        "The Winner Takes It All",
+        "Somewhere over the Rainbow",
+        "Paradise",
+        "Let Her Go",
+        "Take On Me",
+        "Harry Potter"
 };
 
 // Represents a falling tile of a note for song visualization
@@ -60,6 +60,13 @@ public:
 
     //run once per frame to render
     void render();
+
+    // === Added public wrappers for MIDI loading and tile creation ===
+    bool LoadMidiFromFile(const std::string& path);
+    void CreateTilesFromMidi();
+    
+    // AI generation
+    void SetAIStatus(const std::string& status) { aiStatusText = status; }
 
 private:
     //internal helpers
@@ -84,14 +91,14 @@ private:
     std::vector<Tile> allTiles; //tile objects and their start time in seconds
     std::vector<float> keyHighlight; //highlight value for each key for incoming/current key
     std::vector<color> tileColor {
-        color{0, 228, 255, 255}, //cyan - track 0 white
-        color{0, 188, 215, 255}, //darker cyan - track 0 black
-        color{255, 134, 0, 255}, //orange - track 1
-        color{215, 94, 0, 255}, //darker orange - track 1 black
-        color{140, 0, 252, 255}, //violet - track 2
-        color{100, 0, 212, 255}, //darker violet - track 2 black
-        color{255, 254, 55, 255}, // yellow - track 3
-        color{215, 214, 15, 255} // yellow - track 3 black
+            color{0, 228, 255, 255}, //cyan - track 0 white
+            color{0, 188, 215, 255}, //darker cyan - track 0 black
+            color{255, 134, 0, 255}, //orange - track 1
+            color{215, 94, 0, 255}, //darker orange - track 1 black
+            color{140, 0, 252, 255}, //violet - track 2
+            color{100, 0, 212, 255}, //darker violet - track 2 black
+            color{255, 254, 55, 255}, // yellow - track 3
+            color{215, 214, 15, 255} // yellow - track 3 black
     };
     std::unordered_map<int, size_t> trackToIndex;
     float keyPressDepth = blackHover - 0.001;
@@ -109,5 +116,8 @@ private:
 
     Object pianoOutline; //to help aligning
     Button toggleOutline;
+    
+    // AI generation UI
+    Button aiGenerateButton;
+    std::string aiStatusText;
 };
-

@@ -32,10 +32,10 @@ You can use ADB or SideQuest to install the pre-compiled APK onto your Quest 2. 
 2. Install Android Studio  
 3. If you are a Mac user, install XCode.  
 4. Within the Android Studio SDK Manager, install:  
-  4.1 Android SDK Platform, API level 26  
+  4.1 Android SDK Platform, API level 26   
   4.2 Android SDK Build Tools, v 28.0.3 or later  
   4.3 Android NDK  
-5. Within Android Studio, ensure the following veriables are set:   
+5. Within Android Studio, ensure the following variables are set:   
   5.1 Set the environment variable `JAVA_HOME` to the JDK location `C:\Program Files\Android\Android Studio\jre`.  
   5.2 Set the environment variable `ANDROID_HOME` to the Android SDK location `C:\Users\[username]\AppData\Local\Android\Sdk`.  
   5.3 Set the environment variable `ANDROID_NDK_HOME` to the Android NDK location `C:\Users\[username]\AppData\Local\Android\Sdk\ndk\[versionnumber]`.  

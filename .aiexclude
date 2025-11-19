@@ -1,0 +1,10 @@
+.gradle
+.idea
+app/.cxx
+app/.gradle
+app/build
+!bin/scripts/build
+!3rdParty/minizip/build/android/jni
+!3rdParty/stb/build/android/jni
+local.properties
+app/Android.iml

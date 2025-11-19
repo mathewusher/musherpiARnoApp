@@ -3,14 +3,15 @@
 //
 
 #include "Engine.h"
+#include "IntentParser.h"
+
+#include <json.hpp>
+using json = nlohmann::json;
+
 #include <vector>
 #include <openxr/openxr.h>
 #include <string>
 #include "GLES3Loader.h"
-
-// Added for AI and JSON parsing
-#include <nlohmann/json.hpp>
-using json = nlohmann::json;
 
 #include <iostream>
 #include <cstring> // for memcmp
@@ -19,7 +20,6 @@ using json = nlohmann::json;
 #include <algorithm>
 #include <iterator>
 
-// Global static pointers
 Scene* global::scene = nullptr;
 Engine* global::engine = nullptr;
 Piarno* global::piarno = nullptr;
@@ -27,13 +27,6 @@ Piarno* global::piarno = nullptr;
 void log(std::string s) {
     LOGE("%s", s.c_str());
 }
-
-// Minimal MIDI event struct for parsing
-struct MidiEvent {
-    uint32_t startTick;
-    uint8_t note;
-    uint32_t durationTicks;
-};
 
 static bool isMidiFormat(const std::string& data) {
     return data.size() > 4 && memcmp(data.data(), "MThd", 4) == 0;
@@ -43,13 +36,6 @@ static bool isJsonFormat(const std::string& data) {
     if (data.empty()) return false;
     char first = data.front();
     return first == '{' || first == '[';
-}
-
-// Placeholder MIDI parser stub
-static std::vector<MidiEvent> parseMidi(const std::string& data) {
-    std::vector<MidiEvent> events;
-    std::cout << "[WARN] MIDI parsing not implemented yet.\n";
-    return events;
 }
 
 Engine::Engine(Scene *scene) : scene(scene) {
@@ -170,6 +156,17 @@ void Engine::update() {
             r.pos = c.pose.Translation;
             r.rot = vec3{c.pose.Rotation.x, c.pose.Rotation.y, c.pose.Rotation.z};
         }
+    }
+
+    // Handle looping logic if enabled
+    if (isLooping) {
+        if (currentPlaybackTime >= loopEnd) {
+            currentPlaybackTime = loopStart;
+        } else {
+            currentPlaybackTime += 1.0 / 72.0 * playbackSpeed;
+        }
+    } else {
+        currentPlaybackTime += 1.0 / 72.0 * playbackSpeed;
     }
 
     piarno.update();
@@ -316,7 +313,6 @@ std::vector<Geometry> Engine::loadGeometries() {
     return g;
 }
 
-// AI voice/text command handler
 void Engine::HandleUserInput(const std::string& input) {
     Intent intent = parseIntent(input);
 
@@ -341,6 +337,36 @@ void Engine::HandleUserInput(const std::string& input) {
     } else if (intent.id == "load_song") {
         std::cout << "[INFO] Loading song: " << intent.songName << std::endl;
         LoadSongByName(intent.songName);
+    } else if (intent.id == "generate_song") {
+        std::cout << "[INFO] Generating AI song: " << intent.songName << std::endl;
+        aiGenerationStatus = "Generating song...";
+        piarno.SetAIStatus(aiGenerationStatus);
+        
+        aiSongGenerator.GenerateSong(intent.songName, [this](bool success, const std::string& filePath, const std::string& errorMsg) {
+            if (success) {
+                std::cout << "[INFO] AI song generated successfully: " << filePath << std::endl;
+                aiGenerationStatus = "Song generated! Loading...";
+                piarno.SetAIStatus(aiGenerationStatus);
+                
+                // Load the generated song
+                std::ifstream file(filePath, std::ios::binary);
+                if (file.is_open()) {
+                    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                    file.close();
+                    ParseAndLoadSong(content);
+                    aiGenerationStatus = "Song loaded!";
+                    piarno.SetAIStatus(aiGenerationStatus);
+                } else {
+                    aiGenerationStatus = "Error: Could not open generated file";
+                    piarno.SetAIStatus(aiGenerationStatus);
+                    std::cerr << "[ERROR] Failed to open generated MIDI file: " << filePath << std::endl;
+                }
+            } else {
+                std::cerr << "[ERROR] AI song generation failed: " << errorMsg << std::endl;
+                aiGenerationStatus = "Error: " + errorMsg;
+                piarno.SetAIStatus(aiGenerationStatus);
+            }
+        });
     } else {
         std::cout << "[WARN] Unknown intent: " << intent.id << std::endl;
     }
@@ -375,14 +401,25 @@ void Engine::LoadSongByName(const std::string& name) {
 void Engine::ParseAndLoadSong(const std::string& data) {
     if (isMidiFormat(data)) {
         std::cout << "[INFO] Detected MIDI format.\n";
-        auto midiEvents = parseMidi(data);
 
-        for (const auto& ev : midiEvents) {
-            // TODO: add tile spawning using your existing tile system, e.g.:
-            // piarno.AddTile(ev.note, ev.startTick, ev.durationTicks);
+        std::string tempMidiPath = "/sdcard/Android/data/com.oculus.xrpassthrough/files/temp_midi.mid";
+
+        std::ofstream outFile(tempMidiPath, std::ios::binary);
+        if (!outFile) {
+            std::cerr << "[ERROR] Failed to open temp MIDI file for writing.\n";
+            return;
         }
-    }
-    else if (isJsonFormat(data)) {
+        outFile.write(data.data(), data.size());
+        outFile.close();
+
+        if (!piarno.LoadMidiFromFile(tempMidiPath)) {
+            std::cerr << "[ERROR] Piarno failed to load MIDI file.\n";
+            return;
+        }
+
+        piarno.CreateTilesFromMidi();
+
+    } else if (isJsonFormat(data)) {
         std::cout << "[INFO] Detected JSON format.\n";
         try {
             auto j = json::parse(data);
@@ -391,14 +428,13 @@ void Engine::ParseAndLoadSong(const std::string& data) {
                 int pitch = tile["pitch"];
                 float start = tile["start"];
                 float duration = tile["duration"];
-                // TODO: add tile spawning using your existing tile system, e.g.:
+                // TODO: Add tile spawning for JSON data
                 // piarno.AddTile(pitch, start, duration);
             }
         } catch (const std::exception& e) {
             std::cerr << "[ERROR] JSON parsing failed: " << e.what() << std::endl;
         }
-    }
-    else {
+    } else {
         std::cerr << "[ERROR] Unknown song format.\n";
     }
 }

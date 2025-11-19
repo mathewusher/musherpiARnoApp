@@ -99,6 +99,20 @@ void Piarno::init() {
     toggleOutline.label = "ALIGN";
     toggleOutline.labelRot = -M_PI/2;
     pianoScene.attach(toggleOutline);
+    
+    // AI generation button (left side, below song list)
+    origin = vec3{-0.34, 0, 0};
+    off = vec3{-0.4, 0, 0.15};
+    aiGenerateButton.geometry = engine->getGeometry(Mesh::cube);
+    aiGenerateButton.pos = origin + off;
+    aiGenerateButton.scl = vec3{0.03, 0.02, 0.03};
+    aiGenerateButton.col = color{150, 0, 150, 255};
+    aiGenerateButton.pressCol = color{100, 0, 100, 255};
+    aiGenerateButton.label = "AI";
+    aiGenerateButton.labelRot = M_PI/2;
+    pianoScene.attach(aiGenerateButton);
+    
+    aiStatusText = "";
 }
 
 
@@ -111,6 +125,7 @@ void Piarno::update() {
     playbackSpeed.update(controllers);
     toggleOutline.update(controllers);
     songListScroll.update(controllers);
+    aiGenerateButton.update(controllers);
 
     if (pauseButton.isPressed())
         isPaused = !isPaused;
@@ -148,6 +163,12 @@ void Piarno::update() {
 
     if(toggleOutline.isPressed())
         pianoOutline.show = !pianoOutline.show;
+    
+    if(aiGenerateButton.isPressed()) {
+        // Trigger AI generation via voice input simulation
+        // User can say "create a happy song" or similar
+        engine->HandleUserInput("create song");
+    }
 
     if(songListScroll.isReleased()) {
         songListScroll.set(round(songListScroll.get()));
@@ -206,14 +227,22 @@ void Piarno::render() {
             color_t a = (1 - std::min(std::abs(songListScroll.get() - i) / (songListScroll.max / height / 1.5f), 1.0f)) * 255;
             if (0 < a) {
                 color c = i == round(songListScroll.get()) ?
-                        color{50, 176, 255, a} : color{255, 255,255, a};
+                          color{50, 176, 255, a} : color{255, 255,255, a};
                 engine->renderText(s, listPos, size, rot, c);
             }
         }
     }
+    
+    // Render AI generation status
+    if (!aiStatusText.empty()) {
+        vec3 statusPos = aiGenerateButton.globalPos(aiGenerateButton.pos + vec3{0, -0.1, 0.2});
+        vec3 statusSize{0.02, 0.02, 0.03};
+        vec3 statusRot = aiGenerateButton.globalRot(aiGenerateButton.rot + vec3{-M_PI/2, M_PI/2, 0});
+        color statusColor = (aiStatusText.find("Error") != std::string::npos) ? 
+                           color{255, 0, 0, 200} : color{0, 255, 0, 200};
+        engine->renderText(aiStatusText, statusPos, statusSize, statusRot, statusColor);
+    }
 }
-
-
 
 bool Piarno::isBlack(int index) {
     static const bool blackIndex[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
@@ -326,7 +355,7 @@ void Piarno::createTiles() {
 //                log("[DEBUG/Piarno] Detected key release for at piano key: " + std::to_string(key) +
 //                    " with time " + std::to_string(midi[0][i].seconds));
 
-            currentTile[key]->endTime = midi[0][i].seconds + waitTimeBegin;
+                currentTile[key]->endTime = midi[0][i].seconds + waitTimeBegin;
 
             // draw the tile
             auto &tile = currentTile[key]->tile;
@@ -573,4 +602,27 @@ void Piarno::loadMidi(int i) {
     midi.doTimeAnalysis();
 
     log("[DEBUG/Piarno] LOADED MIDI FILE " + (songs[i]));
+}
+
+// === New public wrapper implementations ===
+bool Piarno::LoadMidiFromFile(const std::string& path) {
+    // You may want to implement actual file reading here
+    // For example, load MIDI from file path instead of index-based loadMidi
+    // Here we can adapt the existing loadMidi or create a new method accordingly
+
+    // Stub example: attempt to load from file path (assuming smf::MidiFile supports)
+    try {
+        midi.read(path);
+        midi.joinTracks();
+        midi.doTimeAnalysis();
+        createTiles();
+        return true;
+    } catch (...) {
+        log("[ERROR/Piarno] Failed to load MIDI file: " + path);
+        return false;
+    }
+}
+
+void Piarno::CreateTilesFromMidi() {
+    createTiles();
 }
